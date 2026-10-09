@@ -4,7 +4,13 @@
 (Pendiente: lo completa la Persona 3.)
 
 ## 2. Trade-offs de la arquitectura
-(Pendiente: lo completa la Persona 2.)
+
+El diseño propuesto para el sistema de notificación de sismos conlleva los siguientes compromisos técnicos o *trade-offs*, cuya relevancia varía según las características de este dominio:
+
+- **Payload mínimo + Pull HTTP vs. Payload completo en el broker:** Enviar solo la información mínima hace que la mensajería sea extremadamente veloz y ligera[cite: 1]. El *trade-off* es que obliga a los suscriptores interesados a realizar una petición HTTP adicional al servicio de FastAPI[cite: 2] para obtener los detalles, agregando latencia y una dependencia extra. En este dominio, pesa más lo positivo: como los sismos relevantes para cada nodo (a menos de 500 km[cite: 1]) son pocos, la gran mayoría de los mensajes se descartan rápido sin malgastar ancho de banda.
+- **Desacoplamiento (Fanout) vs. Eficiencia de red (Topic):** Usar un exchange tipo *fanout* permite un desacoplamiento total donde el publicador no necesita saber quién ni dónde está suscrito. El *trade-off* es que genera tráfico redundante, ya que nodos lejanos (ej. Punta Arenas recibiendo sismos de Arica[cite: 1]) procesan mensajes irrelevantes. En este dominio con solo 5 suscriptores[cite: 1], el gasto de red es insignificante, por lo que la simplicidad del *fanout* vale la pena frente a implementar un ruteo geográfico complejo en el broker.
+- **Datos en memoria vs. Persistencia:** Mantener el registro de sismos en memoria en el endpoint HTTP simplifica el desarrollo y cumple con los requisitos del sistema[cite: 2], logrando tiempos de respuesta de lectura casi inmediatos. El *trade-off* es que se sacrifica por completo la durabilidad; si el servicio falla o se reinicia, se pierde el historial. En un sistema de alerta sismológica real, la confiabilidad es crítica, por lo que este *trade-off* no sería aceptable en producción y requeriría una base de datos persistente.
+- **Desacoplamiento vs. Broker como punto único de falla (SPOF):** Aunque el publicador y los suscriptores operan de forma completamente independiente a través de RabbitMQ[cite: 2], el *trade-off* es que la arquitectura entera depende de este componente central. Si el broker se cae, el sistema colapsa. En el dominio de las emergencias, la alta disponibilidad pesa mucho, por lo que en un escenario real se requeriría configurar el broker en un clúster con colas durables.
 
 ## 3. Uso del "Back of the Envelope"
 
