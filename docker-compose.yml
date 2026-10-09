@@ -1,0 +1,48 @@
+x-subscriber: &subscriber
+  build: .
+  command: python -u -m subscriber.subscriber
+  depends_on:
+    rabbitmq:
+      condition: service_healthy
+    api:
+      condition: service_started
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports: ["8000:8000"]
+
+  sub-arica:
+    <<: *subscriber
+    environment: {CIUDAD: arica, RABBITMQ_HOST: rabbitmq, API_BASE_URL: "http://api:8000"}
+  sub-coquimbo:
+    <<: *subscriber
+    environment: {CIUDAD: coquimbo, RABBITMQ_HOST: rabbitmq, API_BASE_URL: "http://api:8000"}
+  sub-valparaiso:
+    <<: *subscriber
+    environment: {CIUDAD: valparaiso, RABBITMQ_HOST: rabbitmq, API_BASE_URL: "http://api:8000"}
+  sub-concepcion:
+    <<: *subscriber
+    environment: {CIUDAD: concepcion, RABBITMQ_HOST: rabbitmq, API_BASE_URL: "http://api:8000"}
+  sub-punta-arenas:
+    <<: *subscriber
+    environment: {CIUDAD: punta_arenas, RABBITMQ_HOST: rabbitmq, API_BASE_URL: "http://api:8000"}
+
+  publisher:
+    build: .
+    profiles: ["tools"]
+    command: python -m publisher.publisher --demo
+    environment: {RABBITMQ_HOST: rabbitmq}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
